@@ -97,6 +97,11 @@ class RscDisplayCellPhone
 			w = 0.432425 * safezoneW;
 			h = 0.114784 * safezoneH;
 			onLBSelChanged = "[] call MPClient_fnc_cellphone_messageSelect;";
+			
+			rowHeight = 0.03;
+			drawSideArrows = 0;
+			idcLeft = -1;
+			idcRight = -1;
 		};
 		class MessageViewerTitle : RscDefineText
 		{

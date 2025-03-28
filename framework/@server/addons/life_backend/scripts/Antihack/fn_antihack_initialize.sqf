@@ -73,6 +73,7 @@ try {
 	private _badmenus = getArray(_config >> "badmenus");
 	private _detectedstrings = getArray(_config >> "detectedstrings");
 	private _vehiclewhitelist = getArray(_config >> "vehiclewhitelist");
+	_vehiclewhitelist pushBackUnique "b_quadbike_01_f";
 	private _weaponwhitelist = getArray(_config >> "weaponwhitelist");
 	private _weaponattacmentwhitelist = getArray(_config >> "weaponattacmentwhitelist");
 	private _uniformwhitelist = getArray(_config >> "uniformwhitelist");

@@ -16,7 +16,7 @@ params [
 if(not(_type in ["lock","unlock"])) exitWith {false};
 
 //--- Disable harazd lights
-[_player, _type,_vehicle] remoteExec ["MPClient_fnc_enableIndicator",0];
+[player, _type, _vehicle] remoteExec ["MPClient_fnc_enableIndicator",0];
 
 //--- Disable sound
 _vehicle setVariable ["AlarmState","Disarming",true];
