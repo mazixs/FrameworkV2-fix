@@ -22,6 +22,12 @@ private _playerData = createHashMapFromArray [
 _playerData set ["SideVar", [_playerData get "Side",true] call MPServer_fnc_util_getSideString];
 _playerData set ["BEGuid", 'BEGuid' callExtension (["get", _playerData get "SteamID"] joinString ":")];
 
+// Добавим проверку на админа вручную для отладки
+private _adminResult = ["READ", "players", [["adminlevel"],[["adminlevel",">",0],["BEGuid",str(_playerData get "BEGuid")]]], true] call MPServer_fnc_database_request;
+if (typeName _adminResult != "ARRAY") then {
+    ["Ошибка запроса админ уровня для игрока: " + (_playerData get "Name")] call MPServer_fnc_log;
+};
+
 private _queryClause = [["BEGuid",str(_playerData get "BEGuid")]];
 private _queryParams = [
     /* _queryResult#0  */ "pid", 
@@ -69,14 +75,15 @@ _playerData set ["Position",        ["GAME","POSITION", _queryResult#16] call MP
 _playerData set ["PlayTime",        ["GAME","ARRAY", _queryResult#17] call MPServer_fnc_database_parse];
 
 //--- Player Stats
-{
-    if(count(_playerData getOrDefault ["Stats",[]]) >= _forEachIndex)then{
-        _playerData set [_x, (_playerData get "Stats")#_forEachIndex]; 
-    };
-}forEach[
-    "Hunger",
-    "Thirst",
-    "Damage"
+private _stats = _playerData getOrDefault ["Stats",[100,100,0]];
+_playerData set ["Hunger", _stats#0];
+_playerData set ["Thirst", _stats#1];
+_playerData set ["Damage", _stats#2];
+_playerData set ["BankAccount", 
+    createHashMapFromArray [
+        ["Funds", GET_MONEY_BANK(_player)],
+        ["Debt", GET_MONEY_DEBT(_player)]
+    ]
 ];
 
 //         

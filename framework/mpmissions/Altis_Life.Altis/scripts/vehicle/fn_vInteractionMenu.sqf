@@ -124,7 +124,20 @@ if (playerSide isEqualTo west) then {
         };
     };
 
-    _Btn4 ctrlShow false;
+    // Добавляем опцию блокировки/разблокировки транспорта в меню
+    if (_curTarget in life_var_vehicles) then {
+        _Btn4 ctrlShow true;
+        if (locked _curTarget isEqualTo 2) then {
+            _Btn4 ctrlSetText "Разблокировать";
+            _Btn4 buttonSetAction "[life_vInact_curTarget, 0] call MPClient_fnc_lockVehicle; closeDialog 0;";
+        } else {
+            _Btn4 ctrlSetText "Заблокировать";
+            _Btn4 buttonSetAction "[life_vInact_curTarget, 2] call MPClient_fnc_lockVehicle; closeDialog 0;";
+        };
+    } else {
+        _Btn4 ctrlShow false;
+    };
+
     _Btn5 ctrlShow false;
     _Btn6 ctrlShow false;
 };

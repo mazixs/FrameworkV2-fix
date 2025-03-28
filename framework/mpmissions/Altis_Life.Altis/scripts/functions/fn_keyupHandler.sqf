@@ -247,37 +247,62 @@ switch (_keyCode) do
     };
 	case DIK_U: 
 	{
-        if (!_altState && !_controlState) then {
-            if (life_var_autorun) then {
-                ["abort"] call MPClient_fnc_autoruntoggle;
-            };
-            private _veh = if (isNull objectParent player) then {
-                cursorObject;
+        if (!_altState && !_controlState && {!dialog} && !life_var_unconscious && !life_var_tazed) then {
+            systemChat "Нажата клавиша U - попытка блокировки/разблокировки";
+            
+            // Создаем переменную для отслеживания выполненного действия
+            private _actionPerformed = false;
+            
+            if (!isNull objectParent player) then {
+                // Проверяем транспорт, в котором находится игрок
+                private _vehicle = vehicle player;
+                systemChat format["Транспорт: %1, в списке: %2", typeOf _vehicle, _vehicle in life_var_vehicles];
+                
+                // Проверяем наличие в списке транспорта или на разблокированное состояние
+                if (_vehicle in life_var_vehicles || locked _vehicle == 0) then {
+                    private _locked = locked _vehicle > 0;
+                    private _state = if (_locked) then {0} else {2};
+                    [_vehicle, _state] call MPClient_fnc_lockVehicle;
+                    _actionPerformed = true;
+                    _stopPropagation = true;
+                } else {
+                    systemChat "У вас нет ключей от этого транспорта";
+                };
             } else {
-                vehicle player;
-            };
-
-            if (_veh isKindOf "House_F") then {
-                if (_veh in life_var_vehicles && {player distance _veh < 20}) then {
-                    private _door = [_veh] call MPClient_fnc_nearestDoor;
-                    if (_door isEqualTo 0) exitWith {hint localize "STR_House_Door_NotNear"};
-                    private _locked = _veh getVariable [format ["bis_disabled_Door_%1",_door],0];
-
-                    if (_locked isEqualTo 0) then {
-                        _veh setVariable [format ["bis_disabled_Door_%1",_door],1,true];
-                        _veh animateSource [format ["Door_%1_source", _door], 0];
-                        systemChat localize "STR_House_Door_Lock";
+                // Проверяем транспорт перед игроком
+                private _curObject = cursorObject;
+                if (((_curObject isKindOf "LandVehicle") || (_curObject isKindOf "Ship") || (_curObject isKindOf "Air"))) then {
+                    systemChat format["Транспорт (курсор): %1, в списке: %2, расстояние: %3м", 
+                        typeOf _curObject, _curObject in life_var_vehicles, round(player distance _curObject)];
+                    
+                    if (player distance _curObject < 7) then {
+                        // Если в списке личного транспорта или уже разблокирован
+                        if (_curObject in life_var_vehicles || locked _curObject == 0) then {
+                            private _locked = locked _curObject > 0;
+                            private _state = if (_locked) then {0} else {2};
+                            [_curObject, _state] call MPClient_fnc_lockVehicle;
+                            _actionPerformed = true;
+                            _stopPropagation = true;
+                        } else {
+                            systemChat "У вас нет ключей от этого транспорта";
+                        };
                     } else {
-                        _veh setVariable [format ["bis_disabled_Door_%1",_door],0,true];
-                        _veh animateSource [format ["Door_%1_source", _door], 1];
-                        systemChat localize "STR_House_Door_Unlock";
+                        systemChat "Транспорт слишком далеко";
                     };
                 };
-            } else { 
-                if (_veh in life_var_vehicles && {player distance _veh < 20}) then {
-                    [player, _veh, _shiftState] remoteExec ["MPServer_fnc_vehicle_lockingRequest",2];
-                }else{
-                    //create dialog for user to enter lockcode and gain keys. [player, _veh, false, ""] remoteExec ["MPServer_fnc_vehicle_lockingRequest",2]; 
+            };
+            
+            // Если действие не выполнено, попробуем вызвать прямую команду сервера
+            if (!_actionPerformed) then {
+                systemChat "Попытка прямого запроса на сервер...";
+                private _target = if (!isNull objectParent player) then {
+                    vehicle player
+                } else {
+                    cursorObject
+                };
+                
+                if (!isNull _target && {(_target isKindOf "LandVehicle") || (_target isKindOf "Ship") || (_target isKindOf "Air")}) then {
+                    [player, _target, false, ""] remoteExec ["MPServer_fnc_vehicle_lockingRequest", 2];
                 };
             };
         };

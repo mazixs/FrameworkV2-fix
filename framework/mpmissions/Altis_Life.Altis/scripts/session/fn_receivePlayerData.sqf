@@ -128,7 +128,13 @@ if (count life_tents > 0) then {
 
 //-- Keychain
 if (count (_playerData getOrDefault ["Keychain",[]]) > 0) then {
-    {life_var_vehicles pushBackUnique _x} forEach (_playerData get "Keychain");
+    private _keyCount = count (_playerData getOrDefault ["Keychain",[]]);
+    systemChat format["Получено ключей: %1", _keyCount];
+    
+    {
+        life_var_vehicles pushBackUnique _x;
+        systemChat format["Добавлен ключ: %1", typeOf _x];
+    } forEach (_playerData get "Keychain");
 };
  
 life_var_sessionDone = true;

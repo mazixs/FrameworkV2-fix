@@ -19,10 +19,23 @@ lbClear _playerListbox;
 //-- Add houses\vehicles
 if(count life_var_vehicles > 0)then{
     {
-        private _color = ((M_CONFIG(getArray,"cfgVehicleArsenal",(typeOf _x),"textures") select (_x getVariable "Life_VEH_color")) select 0);
+        private _colorIndex = _x getVariable ["Life_VEH_color", 0];
+        private _colorText = "";
+        
+        // Проверка наличия конфигурации текстур
+        if (!isNil "_colorIndex") then {
+            private _texturesConfig = M_CONFIG(getArray,"cfgVehicleArsenal",(typeOf _x),"textures");
+            if (count _texturesConfig > _colorIndex) then {
+                private _colorArray = _texturesConfig select _colorIndex;
+                if (count _colorArray > 0) then {
+                    _colorText = _colorArray select 0;
+                };
+            };
+        };
+        
         private _name = getText(configFile >> "CfgVehicles" >> (typeOf _x) >> "displayName");
         private _pic = getText(configFile >> "CfgVehicles" >> (typeOf _x) >> "picture");
-        private _text = format ["(%1)",[_color, ""] select (isNil "_color")];
+        private _text = if (_colorText != "") then {format ["(%1)", _colorText]} else {""};
 
         //-- Bad format, fix
         if (_text in ["()","(any)"]) then {_text = ""};

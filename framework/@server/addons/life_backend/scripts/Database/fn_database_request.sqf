@@ -5,8 +5,8 @@
 */
  
 params [
-	["_mode",""],
-	["_table",""], 
+	["_mode","",[""]],
+	["_table","",[""]],
 	["_params",[]],
 	["_single",false]
 ];
@@ -17,6 +17,18 @@ private _queryIndex = (serverNamespace getVariable ["DBQueryIndex", 0]) + 1;
 private _debug = getNumber(configFile >> "CfgExtDB" >> "debugMode") isEqualTo 1;
 private _fireAndForget = _mode in ["UPDATE","CREATE","DELETE","CALL","CURRENTDAY"];
 private _realTimeDate = systemTimeUTC;
+
+// Функция для корректного форматирования оператора сравнения
+private _formatOperator = {
+    params ["_op"];
+    private _result = _op;
+    
+    // Исправляем неправильные операторы
+    if (_op == "=>=") then { _result = ">="; };
+    if (_op == "=<=") then { _result = "<="; };
+    
+    _result
+};
 
 //--- Build Query
 switch (_mode) do {
@@ -35,7 +47,17 @@ switch (_mode) do {
 	case "READ": 
 	{
 		private _columns = (_params#0) joinString ",";
-		private _clauses = [];{_clauses pushBack (_x joinString "=")} forEach (_params#1);
+		private _clauses = [];
+		{
+			private _clause = "";
+			if (count _x == 3) then {
+				_clause = format["%1 %2 %3", _x#0, [_x#1] call _formatOperator, _x#2];
+			} else {
+				_clause = format["%1=%2", _x#0, _x#1];
+			};
+			_clauses pushBack _clause;
+		} forEach (_params#1);
+		
 		_qstring = ("2:" + str(call extdb_var_database_key) + ":SELECT " + _columns + " FROM " + _table);
 		if(count _clauses > 0)then{_qstring = _qstring + (" WHERE " + (_clauses joinString " AND "));};
 		//"2:464:SELECT name,cash,safe FROM players WHERE playerid=76561199109931625"

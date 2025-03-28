@@ -114,6 +114,12 @@ try {
 			{
 				_vehicleclasses pushBackUnique toLower _x;
 			}forEach _vehiclewhitelist;
+			
+			// Принудительно добавляем базовые транспортные средства для гарантии
+			_vehicleclasses pushBackUnique "c_offroad_01_f";
+			_vehicleclasses pushBackUnique "c_hatchback_01_f";
+			_vehicleclasses pushBackUnique "c_suv_01_f";
+			
 		}else{
 			_checkvehicle = false;
 		};
@@ -337,16 +343,14 @@ try {
 	};
 	
 	//--- Junk Code (Basic TODO: add fake code blocks and more random values)
-	private _junkCode =  {
-		private _junk = "";
-		private _vars = [];
-		_vars resize (random [10,80,250]);
-		{
-		   _junk = _junk + format["
-		   %1=%2;",_x, selectRandom [true,false,[],random(999),serverTime]];
-		} forEach (_vars apply {call MPServer_fnc_util_randomString});
-		_junk
-	};
+	private _junkCode = {""};
+	private _x_rnd_Vars = "";
+
+	//--- random JS var names
+	private _admin_lvl_code = compileFinal format["private _lvl = 0;{if(typeName _x isEqualTo 'ARRAY' && {%1 isEqualTo _x#1})exitWith{_lvl = _x#0;}}forEach %2;_lvl", _rnd_steamID, _rnd_admins];
+	
+	//--- Setup network var name
+	private _networkSetup = "";
 
 	//--- antihack expression
 	private _antihackclient = "
@@ -362,7 +366,7 @@ try {
 		"+(call _junkCode)+"
 		"+_rnd_steamID+" =   getPlayerUID player;
 		"+_rnd_netID+" =     netId player;
-		"+_rnd_adminlvl+" =  compileFinal ""private _lvl = 0;{if("+_rnd_steamID+" isEqualTo _x#1)exitWith{_lvl = _x#0;}}forEach "+_rnd_admins+";_lvl"";
+		"+_rnd_adminlvl+" =  compileFinal ""private _lvl = 0;{if(typeName _x isEqualTo 'ARRAY' && {"+_rnd_steamID+" isEqualTo _x#1})exitWith{_lvl = _x#0;}}forEach "+_rnd_admins+";_lvl"";
 		"+_rnd_isadmin+" =   (call "+_rnd_adminlvl+") > 0;
 		"+_rnd_sendreq+" =   compileFinal """+ _rnd_netVar + " = [_this#0,"+_rnd_steamID+",_this#1];publicVariable '" + _rnd_netVar + "';"";
 		"+_rnd_kickme+" =    compileFinal ""if("+_rnd_useRcon +")then{['kick',_this] call "+_rnd_sendreq+";}else{endMission 'END1';};"";

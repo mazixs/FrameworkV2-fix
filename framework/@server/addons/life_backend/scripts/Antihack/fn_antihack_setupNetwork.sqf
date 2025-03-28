@@ -47,7 +47,11 @@ _netVar addPublicVariableEventHandler {
 		private _adminlvl = 0;
 		private _admins = call MPServer_fnc_antihack_getAdmins;
 		private _BEGuid = GET_BEGUID_S64(_steamID);
-		{if(_SteamID isEqualTo _x#1 || {_BEGuid isEqualTo _x#2})exitWith{_adminlvl = _x#0;}}forEach _admins;
+		{
+			if(typeName _x isEqualTo "ARRAY" && {_SteamID isEqualTo _x#1 || _BEGuid isEqualTo _x#2})exitWith{
+				_adminlvl = _x#0;
+			};
+		}forEach _admins;
 		
 		//---
 		if(_adminlvl > 0 || _key in ["kick","ban","log"])then{

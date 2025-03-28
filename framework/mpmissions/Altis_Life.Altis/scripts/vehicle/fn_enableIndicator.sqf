@@ -11,6 +11,11 @@ private _lastType = _vehicle getVariable ["indicator_mode",""];
 private _flashLimit = 0; 
 private _lights = [];
 
+// Инициализация переменной если она не существует
+if (isNil "life_var_indicatorLasttick") then {
+    life_var_indicatorLasttick = 0;
+};
+
 // Ex
 if (isNull _caller OR _type == "") exitWith {false}; 
 if (_vehicle isEqualTo _caller) exitWith {false};

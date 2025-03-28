@@ -27,7 +27,7 @@ if(_type isEqualTo "all")then{
 		[_x] call _fnc_addBuff;
 	} foreach _types;
 }else{
-	[_x] call _fnc_addBuff;
+	[_type] call _fnc_addBuff;
 };
 
 true

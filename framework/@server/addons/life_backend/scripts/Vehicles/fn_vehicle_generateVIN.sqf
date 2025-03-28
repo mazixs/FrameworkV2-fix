@@ -42,8 +42,8 @@ MPServer_fnc_vehicle_generateVIN_TEMP = {
 			[
 				["BEGuid"],
 				[
-					["VIN", _VIN],
-					["serverID", 2]
+					["VIN", ["DB","STRING", _VIN] call MPServer_fnc_database_parse],
+					["serverID", ["DB","INT", call life_var_serverID] call MPServer_fnc_database_parse]
 				]
 			]
 		] call MPServer_fnc_database_request;
@@ -218,6 +218,10 @@ MPServer_fnc_vehicle_buyRequest = {
 
 	private _vin = "";
 	private _steamID = getPlayerUID _player;
+	
+	// Отладочное сообщение о транспорте, который пытаются купить
+	format ["Попытка покупки транспорта: %1", _class] remoteExec ["systemChat", owner _player];
+	
 	private _vehicle = [_class,_pos,random 360,_useATL] call MPServer_fnc_vehicle_create;
 	private _rentals = getArray(missionConfigFile >> "cfgMaster" >> "vehicleShop_rentalOnly");
 
@@ -237,8 +241,12 @@ MPServer_fnc_vehicle_buyRequest = {
 		_vehicle setPlateNumber _numberPlate;
 	};
 
+	// Добавляем идентификатор для антихака
+	_vehicle setVariable ["oUUID", "SHOP_BOUGHT", true];
+	format ["Установлен идентификатор oUUID: %1", _vehicle getVariable ["oUUID",""]] remoteExec ["systemChat", owner _player];
+
 	if _purchased then {
-		if !(_className in _rentals) then {
+		if !(_class in _rentals) then {
 			_vin = [_player,_vehicle] call MPServer_fnc_vehicle_insertRequest;
 		};
 	};
@@ -250,6 +258,15 @@ MPServer_fnc_vehicle_buyRequest = {
 
 	//-- Give them keys
 	[_steamID,side _player,_vehicle] call MPServer_fnc_keyManagement;
+	
+	// Отладка для владельца
+	format ["Транспорт %1 добавлен в ключи", typeOf _vehicle] remoteExec ["systemChat", owner _player];
+	
+	// Отправляем ключи клиенту напрямую (как верный объект)
+	[_vehicle,{
+	    life_var_vehicles pushBackUnique _this;
+	    systemChat format ["Получены ключи от транспорта: %1", typeOf _this];
+	}] remoteExecCall ["call",owner _player];
 
 	//-- Lock the vehicle (code or keys required)
 	[_player, _vehicle, false, _lockcode] call MPServer_fnc_vehicle_lockingRequest;
@@ -319,32 +336,84 @@ MPServer_fnc_vehicle_lockingRequest = {
 	private _keys = missionNamespace getVariable [format ["%1_KEYS_%2",_steamID,_faction],[]];
 	private _locked = locked _vehicle > 0;
 	private _persistent = _vehicle getVariable ["persistent",false];
-
-	//-- Check Databse lockcode against entered code
-	if (_persistent AND not(_vehicle in _keys)) then
-	{
-		private _dbCode = _vehicle getVariable ["lockcode",""];
-
-		//-- Code correct give keys
-		if(count _code > 0 AND count _dbCode > 0)then{
-			if(_code isEqualTo _dbCode)then{
-				_keys = [_steamID,_faction,_vehicle] call MPServer_fnc_keyManagement;
-				[_vehicle,{life_var_vehicles pushBackUnique _this}] remoteExecCall ["call",owner _player];
+	private _isNewPurchase = [_vehicle] call {
+		params ["_veh"];
+		private _result = false;
+		// Проверяем, является ли это новой покупкой (если вызов из MPServer_fnc_vehicle_buyRequest)
+		if (!isNil {_veh getVariable "vehicle_info_owners"}) then {
+			private _owners = _veh getVariable "vehicle_info_owners";
+			if (count _owners == 1) then {
+				_result = true;
 			};
+		};
+		_result
+	};
+    
+    // Отладочные сообщения
+    format ["Запрос на блокировку/разблокировку: %1, SteamID: %2, Фракция: %3", typeOf _vehicle, _steamID, _faction] remoteExec ["systemChat", owner _player];
+    format ["Наличие ключей: %1, Блокировка: %2, Постоянное: %3, Новый: %4", (_vehicle in _keys), _locked, _persistent, _isNewPurchase] remoteExec ["systemChat", owner _player];
+
+	// Проверка на владение транспортом
+	private _hasOwnership = false;
+
+	// Проверка наличия ключей на сервере
+	if (_vehicle in _keys) then {
+		_hasOwnership = true;
+	};
+
+	// Проверка кода блокировки
+	if (_persistent AND count _code > 0) then {
+		private _dbCode = _vehicle getVariable ["lockcode",""];
+        format ["Код блокировки: %1", [_dbCode, "Не указан"] select (count _dbCode isEqualTo 0)] remoteExec ["systemChat", owner _player];
+
+		//-- Код верный - даем ключи
+		if(count _dbCode > 0 && _code isEqualTo _dbCode)then{
+			_hasOwnership = true;
+			_keys pushBackUnique _vehicle;
+			missionNamespace setVariable [format ["%1_KEYS_%2",_steamID,_faction],_keys];
+			[_vehicle,{life_var_vehicles pushBackUnique _this;}] remoteExecCall ["call",owner _player];
+            "Код принят. Ключи добавлены." remoteExec ["systemChat", owner _player];
 		};
 	};
 
-	//-- Check if they have keys
-	if(count _keys <= 0 || not(_vehicle in _keys))exitWith{
-		"You dont have keys to this vehicle" remoteExec ["systemChat",owner _player];
+	// Проверка владения транспортом (VIN совпадает с PlayerUID)
+	if (!_hasOwnership && _persistent) then {
+		private _owners = _vehicle getVariable ["vehicle_info_owners",[]];
+		{
+			_x params ["_uid", "_name"];
+			if (_uid isEqualTo _steamID) exitWith {
+				_hasOwnership = true;
+				// Если владелец, но нет ключей - добавляем их
+				_keys pushBackUnique _vehicle;
+				missionNamespace setVariable [format ["%1_KEYS_%2",_steamID,_faction],_keys];
+				[_vehicle,{
+					life_var_vehicles pushBackUnique _this;
+					systemChat "Вы владелец этого транспорта. Ключи добавлены.";
+				}] remoteExecCall ["call",owner _player];
+			};
+		} forEach _owners;
+	};
+
+	// Если новая покупка - принудительно разблокируем для возможности выхода
+	if (_isNewPurchase && _locked) then {
+		_hasOwnership = true;
+		_vehicle lock 0;
+		[_vehicle, "unlock", true] remoteExec ["MPClient_fnc_disableAlarm",owner _player];
+		"Новый транспорт разблокирован для возможности выхода" remoteExec ["systemChat",owner _player];
+		_locked = false;
+	};
+
+	// Выход если нет прав
+	if (!_hasOwnership) exitWith {
+		"У вас нет ключей или прав владения этим транспортом" remoteExec ["systemChat",owner _player];
 		-1
 	};
 	
-	//-- Toggle lcok system
-	if _locked then {
-		_vehicle lock false;
+	//-- Toggle lock system
+	if (_locked) then {
+		_vehicle lock 0;
 		[_vehicle, "unlock", true] remoteExec ["MPClient_fnc_disableAlarm",owner _player];
-		if _animate then 
+		if (_animate) then 
 		{ 
 			_vehicle animateDoor ["door_back_R",1];
 			_vehicle animateDoor ["door_back_L",1];
@@ -370,9 +439,9 @@ MPServer_fnc_vehicle_lockingRequest = {
 		(localize "STR_MISC_VehUnlock") remoteExec ["systemChat",owner _player];
 		_locked = false;
 	} else {
-		_vehicle lock true;
+		_vehicle lock 2;
 		[_vehicle, "lock", true] remoteExec ["MPClient_fnc_disableAlarm",owner _player];
-		if _animate then 
+		if (_animate) then 
 		{
 			_vehicle animateDoor ["door_back_R",0];
 			_vehicle animateDoor ["door_back_L",0];
@@ -399,11 +468,13 @@ MPServer_fnc_vehicle_lockingRequest = {
 		_locked = true;
 	};
 
-	//-- Update lockstate in database 
-	if _persistent then
-	{
-		
-	};
+	// Обновление в списке транспорта клиента
+	[_vehicle, {
+        if !(_this in life_var_vehicles) then {
+            life_var_vehicles pushBackUnique _this;
+            systemChat "Транспорт добавлен в ваш список";
+        };
+    }] remoteExecCall ["call", owner _player];
 		
 	//-- Return
 	["UNLOCKED","LOCKED"] select _locked

@@ -17,8 +17,15 @@ if(isClass _config)then{
 
 	//--- Load admins from database - более эффективный запрос
 	if(_use_databaseadmins)then{
-		// Один запрос с условием adminlevel > 1 вместо 99 отдельных запросов
-		_admins append (["READ", "players", [["adminlevel","pid","BEGuid"],[["adminlevel",">",1]]],false]call MPServer_fnc_database_request);
+		// Исправлен оператор сравнения для SQL с использованием правильного формата запроса
+		_admins append (["READ", "players", [["adminlevel","pid","BEGuid"],[["adminlevel",">","0"]]],false]call MPServer_fnc_database_request);
+		
+		// Добавим проверку результата для отладки
+		if (count _admins == 0) then {
+			["Получен пустой список администраторов. Проверьте логику SQL-запроса."] call MPServer_fnc_log;
+		} else {
+			[format["Загружено администраторов: %1", count _admins]] call MPServer_fnc_log;
+		};
 	};
 
 	//--- load developers from description.ext (database level takes priorty)
